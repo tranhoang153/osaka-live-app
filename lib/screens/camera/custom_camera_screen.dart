@@ -20,12 +20,14 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
     with WidgetsBindingObserver {
   static const double _captureAspectRatio = 6 / 9;
   static const double _bottomControlsAreaHeight = 214;
+  static const Duration _maxRecordingDuration = Duration(seconds: 30);
 
   List<CameraDescription> _cameras = <CameraDescription>[];
   CameraController? _cameraController;
   CameraDescription? _selectedCamera;
   bool _isInitializing = true;
   bool _isRecording = false;
+  bool _isRecordingPaused = false;
   bool _isFinishingRecording = false;
   bool _isSubmitted = false;
   XFile? _recordedVideo;
@@ -33,6 +35,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
   String? _errorMessage;
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
+  final Stopwatch _recordingStopwatch = Stopwatch();
 
   @override
   void initState() {
@@ -143,6 +146,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
       _isInitializing = false;
       _recordedVideo = null;
       _recordingDuration = Duration.zero;
+      _isRecordingPaused = false;
     });
   }
 
@@ -150,13 +154,35 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
     if (_isRecording ||
         _isFinishingRecording ||
         _selectedCamera == null ||
-        _cameras.length < 2) {
+        !_hasFrontAndBackCameras) {
       return;
     }
 
-    final currentIndex = _cameras.indexOf(_selectedCamera!);
-    final nextIndex = (currentIndex + 1) % _cameras.length;
-    await _startController(_cameras[nextIndex]);
+    final nextLensDirection =
+        _selectedCamera!.lensDirection == CameraLensDirection.front
+            ? CameraLensDirection.back
+            : CameraLensDirection.front;
+    final nextCamera = _cameraForLensDirection(nextLensDirection);
+    if (nextCamera == null) {
+      return;
+    }
+
+    await _startController(nextCamera);
+  }
+
+  bool get _hasFrontAndBackCameras =>
+      _cameraForLensDirection(CameraLensDirection.front) != null &&
+      _cameraForLensDirection(CameraLensDirection.back) != null;
+
+  CameraDescription? _cameraForLensDirection(
+    CameraLensDirection lensDirection,
+  ) {
+    for (final camera in _cameras) {
+      if (camera.lensDirection == lensDirection) {
+        return camera;
+      }
+    }
+    return null;
   }
 
   Future<void> _startRecording() async {
@@ -165,43 +191,68 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
       return;
     }
 
-    setState(() {
-      _isRecording = true;
-      _recordingDuration = Duration.zero;
-      _recordedVideo = null;
-    });
     await _recordedVideoController?.dispose();
     _recordedVideoController = null;
 
-    _recordingTimer?.cancel();
-    final startedAt = DateTime.now();
-    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || !_isRecording) {
+    try {
+      await controller.resumePreview();
+      await controller.startVideoRecording();
+      _recordingStopwatch
+        ..reset()
+        ..start();
+      _startRecordingTimer();
+      if (!mounted) {
         return;
       }
-
       setState(() {
-        _recordingDuration = DateTime.now().difference(startedAt);
+        _isRecording = true;
+        _isRecordingPaused = false;
+        _recordingDuration = Duration.zero;
+        _recordedVideo = null;
+        _errorMessage = null;
       });
-    });
-
-    try {
-      await controller.startVideoRecording();
     } catch (e) {
       _recordingTimer?.cancel();
+      _recordingStopwatch.stop();
       if (!mounted) {
         return;
       }
       setState(() {
         _isRecording = false;
+        _isRecordingPaused = false;
         _errorMessage = 'Unable to start recording.';
       });
     }
   }
 
-  Future<void> _stopRecording() async {
+  void _startRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted || !_isRecording || _isRecordingPaused) {
+        return;
+      }
+
+      final elapsed = _recordingStopwatch.elapsed;
+      if (elapsed >= _maxRecordingDuration) {
+        setState(() {
+          _recordingDuration = _maxRecordingDuration;
+        });
+        _finishRecording();
+        return;
+      }
+
+      setState(() {
+        _recordingDuration = elapsed;
+      });
+    });
+  }
+
+  Future<void> _pauseRecording() async {
     final controller = _cameraController;
-    if (controller == null || !_isRecording || _isFinishingRecording) {
+    if (controller == null ||
+        !_isRecording ||
+        _isRecordingPaused ||
+        _isFinishingRecording) {
       return;
     }
 
@@ -212,6 +263,85 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
     _recordingTimer?.cancel();
 
     try {
+      await controller.pauseVideoRecording();
+      _recordingStopwatch.stop();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRecordingPaused = true;
+        _isFinishingRecording = false;
+        _recordingDuration = _recordingStopwatch.elapsed > _maxRecordingDuration
+            ? _maxRecordingDuration
+            : _recordingStopwatch.elapsed;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isFinishingRecording = false;
+        _errorMessage = 'Unable to pause recording.';
+      });
+    }
+  }
+
+  Future<void> _resumeRecording() async {
+    final controller = _cameraController;
+    if (controller == null ||
+        !_isRecording ||
+        !_isRecordingPaused ||
+        _isFinishingRecording ||
+        _recordingDuration >= _maxRecordingDuration) {
+      return;
+    }
+
+    setState(() {
+      _isFinishingRecording = true;
+    });
+
+    try {
+      await controller.resumeVideoRecording();
+      _recordingStopwatch.start();
+      _startRecordingTimer();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRecordingPaused = false;
+        _isFinishingRecording = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isFinishingRecording = false;
+        _errorMessage = 'Unable to resume recording.';
+      });
+    }
+  }
+
+  Future<XFile?> _finishRecording() async {
+    final controller = _cameraController;
+    if (controller == null || !_isRecording || _isFinishingRecording) {
+      return _recordedVideo;
+    }
+
+    setState(() {
+      _isFinishingRecording = true;
+    });
+
+    _recordingTimer?.cancel();
+    _recordingStopwatch.stop();
+
+    try {
+      if (_isRecordingPaused) {
+        await controller.resumeVideoRecording();
+      }
       final file = await controller.stopVideoRecording();
       await controller.pausePreview();
       final videoController = VideoPlayerController.file(File(file.path));
@@ -219,24 +349,43 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
       await videoController.setLooping(true);
       if (!mounted) {
         await videoController.dispose();
-        return;
+        return file;
       }
 
       setState(() {
         _isRecording = false;
+        _isRecordingPaused = false;
         _isFinishingRecording = false;
         _recordedVideo = file;
         _recordedVideoController = videoController;
+        _recordingDuration = _recordingStopwatch.elapsed > _maxRecordingDuration
+            ? _maxRecordingDuration
+            : _recordingStopwatch.elapsed;
       });
+      return file;
     } catch (e) {
       if (!mounted) {
-        return;
+        return null;
       }
       setState(() {
-        _isRecording = false;
         _isFinishingRecording = false;
         _errorMessage = 'Unable to stop recording.';
       });
+      return null;
+    }
+  }
+
+  Future<void> _handleRecordButtonTap() async {
+    if (_isFinishingRecording) {
+      return;
+    }
+
+    if (!_isRecording) {
+      await _startRecording();
+    } else if (_isRecordingPaused) {
+      await _resumeRecording();
+    } else {
+      await _pauseRecording();
     }
   }
 
@@ -246,8 +395,8 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
       return;
     }
 
-    if (controller.value.isRecordingVideo) {
-      await _stopRecording();
+    if (_isRecording || controller.value.isRecordingVideo) {
+      await _finishRecording();
     }
 
     await controller.resumePreview();
@@ -261,6 +410,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
       _recordedVideoController = null;
       _recordingDuration = Duration.zero;
       _isRecording = false;
+      _isRecordingPaused = false;
     });
   }
 
@@ -320,12 +470,12 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
   }
 
   Future<void> _confirmRecording() async {
-    final file = _recordedVideo;
+    final webViewProvider = context.read<WebViewProvider>();
+    final file = _recordedVideo ?? await _finishRecording();
     if (file == null) {
       return;
     }
 
-    final webViewProvider = context.read<WebViewProvider>();
     await _sendRecordedFileToWeb(webViewProvider, file);
     await _sendResult(status: 'confirmed', filePath: file.path);
     if (mounted) {
@@ -335,7 +485,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
 
   Future<void> _closeScreen() async {
     if (_isRecording) {
-      await _stopRecording();
+      await _finishRecording();
     }
 
     await _sendResult(status: 'cancelled', filePath: _recordedVideo?.path);
@@ -467,14 +617,15 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
               ),
             ),
             const _GpsPill(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _CircleIconButton(
-                icon: Icons.cameraswitch_rounded,
-                onTap: _toggleCamera,
-                isDisabled: _isRecording || _isFinishingRecording,
+            if (!_isRecording && !_isFinishingRecording)
+              Align(
+                alignment: Alignment.centerRight,
+                child: _CircleIconButton(
+                  icon: Icons.cameraswitch_rounded,
+                  onTap: _toggleCamera,
+                  isDisabled: !_hasFrontAndBackCameras,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -539,35 +690,50 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
             ),
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: _isRecording ? _stopRecording : _startRecording,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 78,
-              height: 78,
-              decoration: BoxDecoration(
-                color: const Color(0xFF323232),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _isRecording ? const Color(0xFFFF4C3A) : Colors.white,
-                  width: 3,
+          SizedBox(
+            height: 88,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _RecordButton(
+                  isRecording: _isRecording,
+                  isPaused: _isRecordingPaused,
+                  isBusy: _isFinishingRecording,
+                  progress: _recordingDuration.inMilliseconds /
+                      _maxRecordingDuration.inMilliseconds,
+                  onTap: _handleRecordButtonTap,
                 ),
-              ),
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: _isRecording ? 22 : 54,
-                  height: _isRecording ? 22 : 54,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4C3A),
-                    borderRadius: BorderRadius.circular(_isRecording ? 6 : 999),
+                if (_isRecording)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _DoneButton(
+                      isDisabled: _isFinishingRecording,
+                      onTap: _finishRecording,
+                    ),
                   ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          AnimatedOpacity(
+            opacity: _isRecording || _recordedVideo != null ? 0 : 1,
+            duration: const Duration(milliseconds: 160),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.64),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                '🔒 갤러리 업로드 불가 · 현장 라이브만',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          const _RightHintIcon(),
         ],
       ),
     );
@@ -643,6 +809,87 @@ class _CustomCameraScreenState extends State<CustomCameraScreen>
   }
 }
 
+class _RecordButton extends StatelessWidget {
+  const _RecordButton({
+    required this.isRecording,
+    required this.isPaused,
+    required this.isBusy,
+    required this.progress,
+    required this.onTap,
+  });
+
+  final bool isRecording;
+  final bool isPaused;
+  final bool isBusy;
+  final double progress;
+  final VoidCallback onTap;
+
+  static const Color _recordRed = Color(0xFFFF3B32);
+
+  @override
+  Widget build(BuildContext context) {
+    final isIdle = !isRecording;
+    final clampedProgress = progress.clamp(0.0, 1.0);
+
+    return InkResponse(
+      onTap: isBusy ? null : onTap,
+      radius: 46,
+      child: SizedBox(
+        width: 88,
+        height: 88,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 78,
+              height: 78,
+              decoration: BoxDecoration(
+                color: isIdle ? Colors.transparent : const Color(0xFF323232),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isIdle ? Colors.white : Colors.transparent,
+                  width: 4,
+                ),
+              ),
+            ),
+            if (!isIdle)
+              SizedBox(
+                width: 82,
+                height: 82,
+                child: CircularProgressIndicator(
+                  value: clampedProgress,
+                  strokeWidth: 4,
+                  backgroundColor: Colors.transparent,
+                  color: _recordRed,
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: isIdle ? 62 : 34,
+              height: isIdle ? 62 : 34,
+              decoration: BoxDecoration(
+                color: _recordRed,
+                borderRadius: BorderRadius.circular(
+                  isIdle || isPaused ? 999 : 9,
+                ),
+              ),
+              child: isPaused
+                  ? const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CircleIconButton extends StatelessWidget {
   const _CircleIconButton({
     required this.icon,
@@ -670,6 +917,41 @@ class _CircleIconButton extends StatelessWidget {
           icon,
           color: Colors.white,
           size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+class _DoneButton extends StatelessWidget {
+  const _DoneButton({
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: isDisabled ? null : onTap,
+      radius: 28,
+      child: AnimatedOpacity(
+        opacity: isDisabled ? 0.48 : 1,
+        duration: const Duration(milliseconds: 160),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            size: 26,
+            color: Color(0xFF181818),
+          ),
         ),
       ),
     );
@@ -738,30 +1020,6 @@ class _ActionButton extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RightHintIcon extends StatelessWidget {
-  const _RightHintIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.check_rounded,
-          size: 20,
-          color: Color(0xFF181818),
         ),
       ),
     );

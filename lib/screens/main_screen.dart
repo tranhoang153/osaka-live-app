@@ -366,7 +366,7 @@ class _MyHomePageState extends State<MyHomePage>
         onTap: () =>
             context.read<NavigationBarProvider>().animationController.reverse(),
         child: Container(
-            color: AppColors.primary,
+            color: Colors.white,
             child: Scaffold(body: Consumer<WebViewProvider>(
               builder: (context, webviewProvider, child) {
                 // Update splash visibility when progress changes
@@ -390,17 +390,19 @@ class _MyHomePageState extends State<MyHomePage>
                   _splashHideTimer?.cancel();
                   _shouldHideSplash = false;
                 }
-                  final disableTopSafeArea = routeNoSafeArea.any((route) =>
-                    webviewProvider.currentUrl.contains(route) ||
+                  final disableTopSafeArea = 
+                  // routeNoSafeArea.any((route) =>
+                  //   webviewProvider.currentUrl.contains(route) ||
                     webviewProvider.currentUrl ==
-                        EnvConfig.instance.webviewUrl);                return Stack(
+                        EnvConfig.instance.webviewUrl;               
+                 return Stack(
                   children: [
                     Opacity(
                       opacity: isLoaded ? 1.0 : 0.0,
                       child: Container(
                         color: Colors.white,
                         child: SafeArea(
-                          top: false,
+                          top: !disableTopSafeArea ,
                           bottom: true,
                           child: Navigator(
                             key: _navigatorKeys[0],
