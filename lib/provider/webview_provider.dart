@@ -1,0 +1,254 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:osaka_app/constants/javascript.dart';
+
+/// Unified WebView provider that manages controller, loading state, and URL
+///
+/// This provider combines functionality from:
+/// - WebViewControllerProvider: Controller management and navigation
+/// - WebViewLoadingProvider: Loading state and progress tracking
+/// - WebviewURLProvider: Current URL tracking
+class WebViewProvider extends ChangeNotifier {
+  // ==================== Controller State ====================
+  InAppWebViewController? _controller;
+  Uri? _pendingDeepLink;
+  Timer? _livePositionDebounceTimer;
+  Map<String, dynamic>? _pendingLivePositionPayload;
+  String? _lastLivePositionJson;
+  bool _isWebViewReady = false;
+
+  static const Duration _livePositionDebounceDuration = Duration(seconds: 3);
+
+  InAppWebViewController? get controller => _controller;
+  Uri? get pendingDeepLink => _pendingDeepLink;
+
+  void setPendingDeepLink(Uri? uri) {
+    _pendingDeepLink = uri;
+  }
+
+  void clearPendingDeepLink() {
+    _pendingDeepLink = null;
+  }
+
+  void setController(InAppWebViewController? controller) {
+    _controller = controller;
+    notifyListeners();
+    _flushLivePositionIfNeeded();
+  }
+
+  void setWebViewReady(bool isReady) {
+    _isWebViewReady = isReady;
+    if (_isWebViewReady) {
+      _flushLivePositionIfNeeded();
+    }
+  }
+
+  void handleNotification(String payload) async {
+    if (_controller != null) {
+      _controller!.evaluateJavascript(source: navigate(payload));
+    }
+  }
+
+  void handleLivePositionChanged({
+    required double lat,
+    required double lng,
+    double? accuracy,
+    int? updatedAt,
+  }) {
+    _pendingLivePositionPayload = {
+      'lat': lat,
+      'lng': lng,
+      if (accuracy != null) 'accuracy': accuracy,
+      'updatedAt': updatedAt ?? DateTime.now().millisecondsSinceEpoch,
+    };
+
+    _livePositionDebounceTimer?.cancel();
+    _livePositionDebounceTimer =
+        Timer(_livePositionDebounceDuration, _flushLivePositionIfNeeded);
+  }
+
+  Future<void> _flushLivePositionIfNeeded() async {
+    final controller = _controller;
+    final payload = _pendingLivePositionPayload;
+
+    if (!_isWebViewReady || controller == null || payload == null) {
+      return;
+    }
+
+    final payloadJson = jsonEncode(payload);
+    if (_lastLivePositionJson == payloadJson) {
+      _pendingLivePositionPayload = null;
+      return;
+    }
+
+    _lastLivePositionJson = payloadJson;
+    await controller.evaluateJavascript(
+      source: pushLivePosition(
+        lat: (payload['lat'] as num).toDouble(),
+        lng: (payload['lng'] as num).toDouble(),
+        accuracy: (payload['accuracy'] as num?)?.toDouble(),
+        updatedAt: (payload['updatedAt'] as num?)?.toInt(),
+      ),
+    );
+    _pendingLivePositionPayload = null;
+  }
+
+  Future<void> sendCameraResult({
+    required String status,
+    String? filePath,
+    int? durationMs,
+    String? cameraFacing,
+    String? mediaType,
+    String? errorMessage,
+  }) async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+
+    await controller.evaluateJavascript(
+      source: pushCameraResult(
+        status: status,
+        filePath: filePath,
+        durationMs: durationMs,
+        cameraFacing: cameraFacing,
+        mediaType: mediaType,
+        errorMessage: errorMessage,
+      ),
+    );
+  }
+
+  Future<void> sendCameraFileTransfer({
+    required String transferId,
+    required String fileName,
+    required String mimeType,
+    required List<String> base64Chunks,
+    required int sizeBytes,
+    int? durationMs,
+    String? cameraFacing,
+  }) async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+
+    await controller.evaluateJavascript(
+      source: pushCameraFileStart(
+        transferId: transferId,
+        fileName: fileName,
+        mimeType: mimeType,
+        totalChunks: base64Chunks.length,
+        sizeBytes: sizeBytes,
+        durationMs: durationMs,
+        cameraFacing: cameraFacing,
+      ),
+    );
+
+    for (var i = 0; i < base64Chunks.length; i++) {
+      await controller.evaluateJavascript(
+        source: pushCameraFileChunk(
+          transferId: transferId,
+          chunkIndex: i,
+          totalChunks: base64Chunks.length,
+          chunk: base64Chunks[i],
+        ),
+      );
+    }
+
+    await controller.evaluateJavascript(
+      source: pushCameraFileComplete(
+        transferId: transferId,
+        fileName: fileName,
+        mimeType: mimeType,
+        totalChunks: base64Chunks.length,
+        sizeBytes: sizeBytes,
+        durationMs: durationMs,
+        cameraFacing: cameraFacing,
+      ),
+    );
+  }
+
+  // ==================== Loading State ====================
+  double _progress = 0.0;
+  bool _hasInitialLoadCompleted = false;
+  double get progress => _progress;
+  bool get hasInitialLoadCompleted => _hasInitialLoadCompleted;
+
+  // ==================== Safe Area State ====================
+  double _safeAreaTop = 0.0;
+  double get safeAreaTop => _safeAreaTop;
+  double _safeAreaBottom = 0.0;
+  double get safeAreaBottom => _safeAreaBottom;
+
+  void setSafeAreaTop(double value) {
+    if (_safeAreaTop != value) {
+      _safeAreaTop = value;
+      notifyListeners();
+    }
+  }
+
+  void setSafeAreaBottom(double value) {
+    if (_safeAreaBottom != value) {
+      _safeAreaBottom = value;
+      notifyListeners();
+    }
+  }
+
+  void setProgress(double progress) {
+    // After initial load completes, don't allow progress to go below 1.0
+    // This prevents splash screen from showing again on subsequent navigations
+    if (_hasInitialLoadCompleted && progress < 1.0) {
+      return; // Don't update progress if it would go below 1.0 after initial load
+    }
+    if (_progress != progress) {
+      _progress = progress;
+      // Mark initial load as completed when progress reaches 1.0
+      if (progress >= 1.0 && !_hasInitialLoadCompleted) {
+        _hasInitialLoadCompleted = true;
+      }
+      notifyListeners();
+    }
+  }
+
+  void resetLoading() {
+    _progress = 0.0;
+    _hasInitialLoadCompleted = false;
+    notifyListeners();
+  }
+
+  // ==================== URL State ====================
+  String _currentUrl = "";
+
+  String get currentUrl => _currentUrl;
+
+  void setCurrentUrl(String url) {
+    if (_currentUrl != url) {
+      _currentUrl = url;
+      notifyListeners();
+    }
+  }
+
+  // ==================== Reset All ====================
+  /// Reset all WebView state (useful when navigating away or restarting)
+  void resetAll() {
+    _livePositionDebounceTimer?.cancel();
+    _livePositionDebounceTimer = null;
+    _pendingLivePositionPayload = null;
+    _lastLivePositionJson = null;
+    _isWebViewReady = false;
+    _controller = null;
+    _progress = 0.0;
+    _hasInitialLoadCompleted = false;
+    _currentUrl = "";
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _livePositionDebounceTimer?.cancel();
+    super.dispose();
+  }
+}

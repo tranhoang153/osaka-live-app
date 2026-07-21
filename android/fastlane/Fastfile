@@ -1,0 +1,162 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build and deploy Android app to Firebase and Play Store"
+  lane :deploy do |options|
+    env = options[:environment] || "dev"
+    # gradle_task = env == "prod" ? "assembleRelease" : "assembleDebug"
+    firebase_app_id = ENV["FIREBASE_ANDROID_APP_ID"] 
+
+    UI.message("🚀 Deploying Android app for environment: #{env}")
+
+    # # Lấy version và build number
+    # version_number = get_android_version_number
+    # build_number = get_android_build_number
+
+    # # Cập nhật version trong build.gradle.kts
+    # gradle_file_path = "../app/build.gradle.kts"
+    # gradle_content = File.read(gradle_file_path)
+    
+    # # Cập nhật versionName
+    # gradle_content = gradle_content.gsub(
+    #   /versionName\s*=\s*"[^"]+"/,
+    #   "versionName = \"#{version_number}\""
+    # )
+    
+    # # Cập nhật versionCode
+    # gradle_content = gradle_content.gsub(
+    #   /versionCode\s*=\s*\d+/,
+    #   "versionCode = #{build_number}"
+    # )
+    
+    # File.write(gradle_file_path, gradle_content)
+
+    # begin
+    #     gradle(task: gradle_task)
+    # rescue => e
+    #     UI.error("❌ Failed to build Android app: #{e.message}")
+    #     next
+    # end
+
+    relative = "../../"
+    absolute = File.expand_path(relative, __dir__)
+
+    UI.message "📍 __dir__ = #{__dir__}"
+    UI.message "📍 Dir.pwd = #{Dir.pwd}"
+    UI.message "📍 '../../' resolved = #{absolute}"
+
+    path = File.expand_path("../../build/app/outputs/bundle", __dir__)
+    UI.message "📂 ../../build/app/outputs/bundle: #{path}"
+
+    if File.directory?(path)
+      UI.message "📁 Contents of #{path}:"
+      Dir.entries(path).each { |entry| UI.message "  - #{entry}" }
+    else
+      UI.error "❌ Folder not found: #{path}"
+    end
+
+
+    pathRelease = File.expand_path("../../build/app/outputs/flutter-apk", __dir__)
+    UI.message "📂 ../../build/app/outputs/flutter-apk: #{pathRelease}"
+
+    if File.directory?(pathRelease)
+      UI.message "📁 Contents of #{pathRelease}:"
+      Dir.entries(pathRelease).each { |entry| UI.message "  - #{entry}" }
+    else
+      UI.error "❌ Folder not found: #{pathRelease}"
+    end
+
+    
+
+    aab_path = File.expand_path("../../build/app/outputs/bundle/#{env}Release/app-#{env}-release.aab", __dir__)
+    apk_path = File.expand_path("../../build/app/outputs/flutter-apk/app-#{env}-release.apk", __dir__)
+    UI.message("📦 Using AAB path: #{aab_path}")
+    UI.message("📦 Using APK path: #{apk_path}")
+
+    if firebase_app_id && File.exist?(apk_path)
+      begin
+        firebase_app_distribution(
+          app: firebase_app_id,
+          android_artifact_path: apk_path,
+          android_artifact_type: "APK",
+          groups: "beta-testers",
+          release_notes: "Deploying #{env} build - #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+        UI.success("✅ Uploaded to Firebase App Distribution successfully")
+      rescue => e
+        UI.error("❌ Failed to upload to Firebase: #{e.message}")
+      end
+    else
+      UI.error("⚠️ Firebase App ID not set or AAB not found, skipping Firebase upload.")
+    end
+
+    # 📤 Google Play Upload
+    json_key_file = File.expand_path("../../google-play-service-account.json", __dir__)
+
+    begin
+      track = env == "prod" ? "production" : "internal"
+      UI.message("Debug info:")
+      UI.message("Current directory: #{Dir.pwd}")
+      UI.message("JSON file path: #{json_key_file}")
+      UI.message("JSON file exists? #{File.exist?(json_key_file)}")
+      UI.message("JSON file content:")
+      UI.message(File.read(json_key_file))
+      
+      supply(
+        track: track,
+        aab: aab_path,
+        release_status: "draft",
+        json_key: json_key_file
+      )
+      UI.success("✅ Uploaded to Play Store #{track} track successfully")
+    rescue => e
+      UI.error("❌ Failed to upload to Play Store: #{e.message}")
+      UI.error("Full error: #{e.backtrace.join("\n")}")
+    end
+
+    UI.success("🎉 Android deploy lane completed")
+  end
+
+  private_lane :get_android_version_number do 
+    # Đọc version từ build.gradle.kts
+    gradle_path = "../app/build.gradle.kts"
+    unless File.exist?(gradle_path)
+      UI.error("❌ build.gradle.kts not found")
+      next nil
+    end
+  
+    gradle_content = File.read(gradle_path)
+    version_match = gradle_content.match(/versionName\s*=\s*"([^"]+)"/)
+    
+    if version_match
+      version = version_match[1]
+      UI.message("📱 Android Version from build.gradle: #{version}")
+      next version
+    else
+      UI.error("❌ Could not find versionName in build.gradle")
+      next nil
+    end
+  end
+
+  private_lane :get_android_build_number do 
+    # Đọc build number từ build.gradle.kts
+    gradle_path = "../app/build.gradle.kts"
+    unless File.exist?(gradle_path)
+      UI.error("❌ build.gradle.kts not found")
+      next 1
+    end
+  
+    gradle_content = File.read(gradle_path)
+    build_match = gradle_content.match(/versionCode\s*=\s*(\d+)/)
+    
+    if build_match
+      current_build = build_match[1].to_i
+      new_build = current_build + 1
+      UI.message("📱 Android Build number: #{new_build}")
+      next new_build
+    else
+      UI.error("❌ Could not find versionCode in build.gradle")
+      next 1
+    end
+  end
+end

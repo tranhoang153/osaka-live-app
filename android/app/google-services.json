@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "960908966728",
+    "project_id": "mastercamkorea-bec06",
+    "storage_bucket": "mastercamkorea-bec06.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960908966728:android:a2a53de6deb95c96e6917d",
+        "android_client_info": {
+          "package_name": "com.mastercamkorea.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960908966728:android:2e945b35f73230cee6917d",
+        "android_client_info": {
+          "package_name": "com.mastercamkorea.app.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960908966728:android:c8d18c3aac812604e6917d",
+        "android_client_info": {
+          "package_name": "com.mastercamkorea.app.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
