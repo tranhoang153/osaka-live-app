@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "960908966728",
-    "project_id": "mastercamkorea-bec06",
-    "storage_bucket": "mastercamkorea-bec06.firebasestorage.app"
+    "project_number": "483630909707",
+    "project_id": "osaka-live-503110",
+    "storage_bucket": "osaka-live-503110.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:960908966728:android:a2a53de6deb95c96e6917d",
+        "mobilesdk_app_id": "1:483630909707:android:f05695c99e1ef1a1807a0e",
         "android_client_info": {
-          "package_name": "com.mastercamkorea.app"
+          "package_name": "com.osakalive.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+          "current_key": "AIzaSyCQ56cN2hoP0ElNJ4XWWcuMFUnispf0xRs"
         }
       ],
       "services": {
@@ -26,15 +26,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:960908966728:android:2e945b35f73230cee6917d",
+        "mobilesdk_app_id": "1:483630909707:android:12ed1a79859bd786807a0e",
         "android_client_info": {
-          "package_name": "com.mastercamkorea.app.dev"
+          "package_name": "com.osakalive.app.dev"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+          "current_key": "AIzaSyCQ56cN2hoP0ElNJ4XWWcuMFUnispf0xRs"
         }
       ],
       "services": {
@@ -45,15 +45,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:960908966728:android:c8d18c3aac812604e6917d",
+        "mobilesdk_app_id": "1:483630909707:android:ff451582c43433a6807a0e",
         "android_client_info": {
-          "package_name": "com.mastercamkorea.app.staging"
+          "package_name": "com.osakalive.app.staging"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI"
+          "current_key": "AIzaSyCQ56cN2hoP0ElNJ4XWWcuMFUnispf0xRs"
         }
       ],
       "services": {

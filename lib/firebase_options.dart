@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI',
-    appId: '1:960908966728:android:a2a53de6deb95c96e6917d',
-    messagingSenderId: '960908966728',
-    projectId: 'mastercamkorea-bec06',
-    storageBucket: 'mastercamkorea-bec06.firebasestorage.app',
+    apiKey: 'AIzaSyCQ56cN2hoP0ElNJ4XWWcuMFUnispf0xRs',
+    appId: '1:483630909707:android:f05695c99e1ef1a1807a0e',
+    messagingSenderId: '483630909707',
+    projectId: 'osaka-live-503110',
+    storageBucket: 'osaka-live-503110.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBbStFSMsGunX_gQKfoUDfZr9T0kgHEnN4',
-    appId: '1:960908966728:ios:1e30e5f904ff615de6917d',
-    messagingSenderId: '960908966728',
-    projectId: 'mastercamkorea-bec06',
-    storageBucket: 'mastercamkorea-bec06.firebasestorage.app',
-    iosBundleId: 'com.mastercamkorea.app',
+    apiKey: 'AIzaSyDVIOHM1MdlI5v6JM6_CgVm8SJrD6qI_v8',
+    appId: '1:483630909707:ios:d42c3bf17a402ee3807a0e',
+    messagingSenderId: '483630909707',
+    projectId: 'osaka-live-503110',
+    storageBucket: 'osaka-live-503110.firebasestorage.app',
+    iosBundleId: 'com.osakalive.app',
   );
 }

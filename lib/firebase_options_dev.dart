@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart'
 ///
 /// Example:
 /// ```dart
-/// import 'firebase_options.dart';
+/// import 'firebase_options_dev.dart';
 /// // ...
 /// await Firebase.initializeApp(
 ///   options: DefaultFirebaseOptions.currentPlatform,
@@ -50,19 +50,19 @@ class DefaultFirebaseDevOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAQ3ZfNWMDX57UHoN4YgkI1oKL-9es7xzI',
-    appId: '1:960908966728:android:2e945b35f73230cee6917d',
-    messagingSenderId: '960908966728',
-    projectId: 'mastercamkorea-bec06',
-    storageBucket: 'mastercamkorea-bec06.firebasestorage.app',
+    apiKey: 'AIzaSyCQ56cN2hoP0ElNJ4XWWcuMFUnispf0xRs',
+    appId: '1:483630909707:android:12ed1a79859bd786807a0e',
+    messagingSenderId: '483630909707',
+    projectId: 'osaka-live-503110',
+    storageBucket: 'osaka-live-503110.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBbStFSMsGunX_gQKfoUDfZr9T0kgHEnN4',
-    appId: '1:960908966728:ios:9490fb1359e81607e6917d',
-    messagingSenderId: '960908966728',
-    projectId: 'mastercamkorea-bec06',
-    storageBucket: 'mastercamkorea-bec06.firebasestorage.app',
-    iosBundleId: 'com.mastercamkorea.app.dev',
+    apiKey: 'AIzaSyDVIOHM1MdlI5v6JM6_CgVm8SJrD6qI_v8',
+    appId: '1:483630909707:ios:53e990202f72c344807a0e',
+    messagingSenderId: '483630909707',
+    projectId: 'osaka-live-503110',
+    storageBucket: 'osaka-live-503110.firebasestorage.app',
+    iosBundleId: 'com.osakalive.app.dev',
   );
 }
