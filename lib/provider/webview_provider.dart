@@ -15,12 +15,17 @@ class WebViewProvider extends ChangeNotifier {
   // ==================== Controller State ====================
   InAppWebViewController? _controller;
   Uri? _pendingDeepLink;
-  Timer? _livePositionDebounceTimer;
+  Timer? _livePositionThrottleTimer;
+  Map<String, dynamic>? _latestLivePositionPayload;
   Map<String, dynamic>? _pendingLivePositionPayload;
   String? _lastLivePositionJson;
+  DateTime? _lastLivePositionSentAt;
+  bool _isFlushingLivePosition = false;
   bool _isWebViewReady = false;
+  Map<String, dynamic>? _latestLocationPermissionPayload;
 
-  static const Duration _livePositionDebounceDuration = Duration(seconds: 3);
+  static const Duration _livePositionThrottleDuration =
+      Duration(milliseconds: 500);
 
   InAppWebViewController? get controller => _controller;
   Uri? get pendingDeepLink => _pendingDeepLink;
@@ -36,13 +41,17 @@ class WebViewProvider extends ChangeNotifier {
   void setController(InAppWebViewController? controller) {
     _controller = controller;
     notifyListeners();
-    _flushLivePositionIfNeeded();
+    _queueLatestLivePosition();
   }
 
   void setWebViewReady(bool isReady) {
     _isWebViewReady = isReady;
     if (_isWebViewReady) {
-      _flushLivePositionIfNeeded();
+      _queueLatestLivePosition();
+      _sendLatestLocationPermission();
+    } else {
+      _lastLivePositionJson = null;
+      _lastLivePositionSentAt = null;
     }
   }
 
@@ -58,23 +67,89 @@ class WebViewProvider extends ChangeNotifier {
     double? accuracy,
     int? updatedAt,
   }) {
-    _pendingLivePositionPayload = {
+    final payload = {
       'lat': lat,
       'lng': lng,
       if (accuracy != null) 'accuracy': accuracy,
       'updatedAt': updatedAt ?? DateTime.now().millisecondsSinceEpoch,
     };
 
-    _livePositionDebounceTimer?.cancel();
-    _livePositionDebounceTimer =
-        Timer(_livePositionDebounceDuration, _flushLivePositionIfNeeded);
+    _latestLivePositionPayload = payload;
+    _pendingLivePositionPayload = payload;
+    _scheduleLivePositionFlush();
+  }
+
+  void _queueLatestLivePosition() {
+    final latestPayload = _latestLivePositionPayload;
+    if (latestPayload == null) {
+      return;
+    }
+
+    _pendingLivePositionPayload = latestPayload;
+    _scheduleLivePositionFlush();
+  }
+
+  void _scheduleLivePositionFlush() {
+    if (!_isWebViewReady) {
+      debugPrint(
+        '[OsakaLive][location][flutter] waiting to send position: WebView is not ready',
+      );
+      return;
+    }
+
+    if (_controller == null) {
+      debugPrint(
+        '[OsakaLive][location][flutter] waiting to send position: WebView controller is null',
+      );
+      return;
+    }
+
+    final lastSentAt = _lastLivePositionSentAt;
+    if (lastSentAt == null) {
+      _flushLivePositionIfNeeded();
+      return;
+    }
+
+    final elapsed = DateTime.now().difference(lastSentAt);
+    if (elapsed >= _livePositionThrottleDuration) {
+      _livePositionThrottleTimer?.cancel();
+      _livePositionThrottleTimer = null;
+      _flushLivePositionIfNeeded();
+      return;
+    }
+
+    _livePositionThrottleTimer ??= Timer(
+      _livePositionThrottleDuration - elapsed,
+      () {
+        _livePositionThrottleTimer = null;
+        _flushLivePositionIfNeeded();
+      },
+    );
   }
 
   Future<void> _flushLivePositionIfNeeded() async {
+    if (_isFlushingLivePosition) {
+      return;
+    }
+
     final controller = _controller;
     final payload = _pendingLivePositionPayload;
 
-    if (!_isWebViewReady || controller == null || payload == null) {
+    if (!_isWebViewReady) {
+      debugPrint(
+        '[OsakaLive][location][flutter] skipped send: WebView is not ready',
+      );
+      return;
+    }
+
+    if (controller == null) {
+      debugPrint(
+        '[OsakaLive][location][flutter] skipped send: WebView controller is null',
+      );
+      return;
+    }
+
+    if (payload == null) {
       return;
     }
 
@@ -85,15 +160,62 @@ class WebViewProvider extends ChangeNotifier {
     }
 
     _lastLivePositionJson = payloadJson;
+    _pendingLivePositionPayload = null;
+    _isFlushingLivePosition = true;
+    try {
+      debugPrint(
+        '[OsakaLive][location][flutter] sending to WebView $payloadJson',
+      );
+      await controller.evaluateJavascript(
+        source: pushLivePosition(
+          lat: (payload['lat'] as num).toDouble(),
+          lng: (payload['lng'] as num).toDouble(),
+          accuracy: (payload['accuracy'] as num?)?.toDouble(),
+          updatedAt: (payload['updatedAt'] as num?)?.toInt(),
+        ),
+      );
+      _lastLivePositionSentAt = DateTime.now();
+    } finally {
+      _isFlushingLivePosition = false;
+      if (_pendingLivePositionPayload != null) {
+        _scheduleLivePositionFlush();
+      }
+    }
+  }
+
+  Future<void> sendLocationPermissionStatus({
+    required String status,
+    required bool serviceEnabled,
+    int? updatedAt,
+  }) async {
+    final payload = {
+      'status': status,
+      'serviceEnabled': serviceEnabled,
+      'updatedAt': updatedAt ?? DateTime.now().millisecondsSinceEpoch,
+    };
+
+    _latestLocationPermissionPayload = payload;
+    await _sendLatestLocationPermission();
+  }
+
+  Future<void> _sendLatestLocationPermission() async {
+    final controller = _controller;
+    final payload = _latestLocationPermissionPayload;
+
+    if (!_isWebViewReady || controller == null || payload == null) {
+      return;
+    }
+
+    debugPrint(
+      '[OsakaLive][location][flutter] sending permission to WebView ${jsonEncode(payload)}',
+    );
     await controller.evaluateJavascript(
-      source: pushLivePosition(
-        lat: (payload['lat'] as num).toDouble(),
-        lng: (payload['lng'] as num).toDouble(),
-        accuracy: (payload['accuracy'] as num?)?.toDouble(),
+      source: pushLocationPermission(
+        status: payload['status'] as String,
+        serviceEnabled: payload['serviceEnabled'] as bool,
         updatedAt: (payload['updatedAt'] as num?)?.toInt(),
       ),
     );
-    _pendingLivePositionPayload = null;
   }
 
   Future<void> sendCameraResult({
@@ -234,10 +356,14 @@ class WebViewProvider extends ChangeNotifier {
   // ==================== Reset All ====================
   /// Reset all WebView state (useful when navigating away or restarting)
   void resetAll() {
-    _livePositionDebounceTimer?.cancel();
-    _livePositionDebounceTimer = null;
+    _livePositionThrottleTimer?.cancel();
+    _livePositionThrottleTimer = null;
+    _latestLivePositionPayload = null;
     _pendingLivePositionPayload = null;
     _lastLivePositionJson = null;
+    _lastLivePositionSentAt = null;
+    _isFlushingLivePosition = false;
+    _latestLocationPermissionPayload = null;
     _isWebViewReady = false;
     _controller = null;
     _progress = 0.0;
@@ -248,7 +374,7 @@ class WebViewProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _livePositionDebounceTimer?.cancel();
+    _livePositionThrottleTimer?.cancel();
     super.dispose();
   }
 }

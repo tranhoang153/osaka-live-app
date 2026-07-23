@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
 
@@ -140,6 +141,65 @@ class PermissionService {
       print('Error requesting camera/microphone permission: $e');
       return false;
     }
+  }
+
+  // ==================== Location Permission ====================
+
+  Future<Map<String, dynamic>> getLocationPermissionPayload() async {
+    final status = await permission_handler.Permission.location.status;
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    return {
+      'status': _locationStatusName(status),
+      'serviceEnabled': serviceEnabled,
+      'updatedAt': DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  Future<Map<String, dynamic>> requestLocationPermission() async {
+    var status = await permission_handler.Permission.location.status;
+
+    if (status.isDenied) {
+      status = await permission_handler.Permission.location.request();
+    }
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      await permission_handler.openAppSettings();
+    }
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (status.isGranted && !serviceEnabled) {
+      await Geolocator.openLocationSettings();
+    }
+
+    return {
+      'status': _locationStatusName(status),
+      'serviceEnabled': serviceEnabled,
+      'updatedAt': DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  String _locationStatusName(permission_handler.PermissionStatus status) {
+    if (status.isGranted) {
+      return 'granted';
+    }
+    if (status.isPermanentlyDenied) {
+      return 'permanentlyDenied';
+    }
+    if (status.isRestricted) {
+      return 'restricted';
+    }
+    if (status.isLimited) {
+      return 'limited';
+    }
+    if (status.isDenied) {
+      return 'denied';
+    }
+    if (status.isProvisional) {
+      return 'provisional';
+    }
+
+    return 'unknown';
   }
 
   /// Open app settings for manual permission grant

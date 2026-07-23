@@ -9,6 +9,7 @@ import 'package:osaka_app/models/web_post_message.dart';
 import 'package:osaka_app/provider/webview_provider.dart';
 import 'package:osaka_app/repositories/auth_repository.dart';
 import 'package:osaka_app/screens/camera/custom_camera_screen.dart';
+import 'package:osaka_app/services/location/location_sync_service.dart';
 import 'package:osaka_app/services/permission/permission_service.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -57,6 +58,43 @@ class JsCommunicationService {
     final fToast = FToast();
     fToast.init(context);
     final permissionService = PermissionService();
+    final locationSyncService = LocationSyncService();
+
+    Future<void> sendLocationPermissionPayload(
+      Map<String, dynamic> payload,
+    ) async {
+      if (!context.mounted) {
+        return;
+      }
+
+      await context.read<WebViewProvider>().sendLocationPermissionStatus(
+            status: payload['status'] as String,
+            serviceEnabled: payload['serviceEnabled'] as bool,
+            updatedAt: (payload['updatedAt'] as num?)?.toInt(),
+          );
+    }
+
+    Future<void> startLocationSyncIfAllowed(
+      Map<String, dynamic> permissionPayload,
+    ) async {
+      if (!context.mounted ||
+          permissionPayload['status'] != 'granted' ||
+          permissionPayload['serviceEnabled'] != true) {
+        return;
+      }
+
+      final webViewProvider = context.read<WebViewProvider>();
+      await locationSyncService.start(
+        onPosition: (position) {
+          webViewProvider.handleLivePositionChanged(
+            lat: position.latitude,
+            lng: position.longitude,
+            accuracy: position.accuracy,
+            updatedAt: position.timestamp.millisecondsSinceEpoch,
+          );
+        },
+      );
+    }
 
     Future<void> openCustomCamera() async {
       if (!context.mounted) {
@@ -128,6 +166,11 @@ class JsCommunicationService {
                 SharePlus.instance.share(
                   params,
                 );
+              } else if (postedMessage.type == 'request_location_permission') {
+                final permissionPayload =
+                    await permissionService.requestLocationPermission();
+                await sendLocationPermissionPayload(permissionPayload);
+                await startLocationSyncIfAllowed(permissionPayload);
               } else if (postedMessage.type == 'copy-fcm-token') {
                 await WebViewHelper().handleCopyFCMToken(fToast);
               } else if (postedMessage.type == 'download_file') {

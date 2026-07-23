@@ -187,6 +187,13 @@ mixin WebViewLifecycleMixin<T extends StatefulWidget> on State<T> {
 
     print("stop successful");
     loadingProvider.setWebViewReady(true);
+    final locationPermissionPayload =
+        await PermissionService().getLocationPermissionPayload();
+    await loadingProvider.sendLocationPermissionStatus(
+      status: locationPermissionPayload['status'] as String,
+      serviceEnabled: locationPermissionPayload['serviceEnabled'] as bool,
+      updatedAt: (locationPermissionPayload['updatedAt'] as num?)?.toInt(),
+    );
     onUpdate();
 
     pullToRefreshController?.endRefreshing();

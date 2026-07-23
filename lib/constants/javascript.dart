@@ -35,7 +35,36 @@ String pushLivePosition({
   return """
         (function() {
           try {
-            window.__osakaLivePosition?.(${jsonEncode(payload)});
+            var payload = ${jsonEncode(payload)};
+            window.__osakaLivePositionLast = payload;
+            if (typeof window.__osakaLivePosition === 'function') {
+              window.__osakaLivePosition(payload);
+            } else {
+              window.dispatchEvent(new CustomEvent('osaka-live-position', { detail: payload }));
+            }
+      } catch (e) {
+      }
+    })();
+  """;
+}
+
+String pushLocationPermission({
+  required String status,
+  required bool serviceEnabled,
+  int? updatedAt,
+}) {
+  final payload = <String, dynamic>{
+    'status': status,
+    'serviceEnabled': serviceEnabled,
+    'updatedAt': updatedAt ?? DateTime.now().millisecondsSinceEpoch,
+  };
+
+  return """
+        (function() {
+          try {
+            var payload = ${jsonEncode(payload)};
+            window.__osakaLiveLocationPermissionLast = payload;
+            window.dispatchEvent(new CustomEvent('osaka-live-location-permission', { detail: payload }));
       } catch (e) {
       }
     })();

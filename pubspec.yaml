@@ -85,21 +85,21 @@ flutter_launcher_icons:
   image_path: "assets/images/app_icon.png"
   android: true
   ios: true
-  adaptive_icon_background: "#000000"
+  adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/images/app_icon.png"
-  background_color_ios: "#000000"
+  background_color_ios: "#ffffff"
   remove_alpha_ios: true
 
   # run: flutter pub run flutter_native_splash:create
 flutter_native_splash:
-  color: "#0D0D0D"
+  color: "#ffffff"
   image: assets/images/splash_content.png
   branding: assets/images/splash_brand.png # This should be an image containing your text
   branding_bottom_padding: 50
 
   android_12:
     image: assets/images/splash_content_android_12.png
-    color: "#0D0D0D"
+    color: "#ffffff"
     branding: assets/images/splash_brand.png
 
 flutter:

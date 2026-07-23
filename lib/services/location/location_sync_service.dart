@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 class LocationSyncService {
+  factory LocationSyncService() => _instance;
+
+  LocationSyncService._internal();
+
+  static final LocationSyncService _instance = LocationSyncService._internal();
+
   StreamSubscription<Position>? _positionSubscription;
   bool _starting = false;
 
@@ -57,6 +63,9 @@ class LocationSyncService {
         accuracy: LocationAccuracy.high,
       ),
     );
+    debugPrint(
+      '[OsakaLive][location][flutter] current position lat=${position.latitude}, lng=${position.longitude}, accuracy=${position.accuracy}, updatedAt=${position.timestamp.millisecondsSinceEpoch}',
+    );
     onPosition(position);
   }
 
@@ -66,10 +75,15 @@ class LocationSyncService {
     _positionSubscription ??= Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 50,
+        distanceFilter: 1,
       ),
     ).listen(
-      onPosition,
+      (position) {
+        debugPrint(
+          '[OsakaLive][location][flutter] stream position lat=${position.latitude}, lng=${position.longitude}, accuracy=${position.accuracy}, updatedAt=${position.timestamp.millisecondsSinceEpoch}',
+        );
+        onPosition(position);
+      },
       onError: (error) {
         debugPrint('Location stream error: $error');
       },
