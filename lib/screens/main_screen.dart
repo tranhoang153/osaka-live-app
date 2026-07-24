@@ -391,8 +391,8 @@ class _MyHomePageState extends State<MyHomePage>
                   _shouldHideSplash = false;
                 }
                   final disableTopSafeArea = 
-                  // routeNoSafeArea.any((route) =>
-                  //   webviewProvider.currentUrl.contains(route) ||
+                  routeNoSafeArea.any((route) =>
+                    webviewProvider.currentUrl.contains(route) )||
                     webviewProvider.currentUrl ==
                         EnvConfig.instance.webviewUrl;               
                  return Stack(

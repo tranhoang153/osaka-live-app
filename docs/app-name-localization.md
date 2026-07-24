@@ -4,7 +4,7 @@
 
 App name sẽ tự động thay đổi dựa trên ngôn ngữ hệ thống của thiết bị:
 
-- **Mặc định (English/Other)**: `mymacam`
+- **Mặc định (English/Other)**: `Osaka Live`
 - **Tiếng Hàn (Korean)**: `마이마캠`
 
 ## Implementation
@@ -12,7 +12,7 @@ App name sẽ tự động thay đổi dựa trên ngôn ngữ hệ thống củ
 ### 1. Constants (`lib/constants/common.dart`)
 
 ```dart
-const appName = "mymacam";
+const appName = "Osaka Live";
 
 String getLocalizedAppName(String? languageCode) {
   if (languageCode == 'ko') {
@@ -63,13 +63,13 @@ MaterialApp(
 
 ### iOS
 
-- `ios/Runner/Prod-Info.plist`: `CFBundleDisplayName = "mymacam"`
+- `ios/Runner/Prod-Info.plist`: `CFBundleDisplayName = "Osaka Live"`
 - `ios/Runner/ko.lproj/InfoPlist.strings`: `CFBundleDisplayName = "마이마캠"`
 - Dev/Staging giữ tên riêng
 
 ### Android
 
-- `android/app/src/main/res/values/strings.xml`: `app_name = "mymacam"`
+- `android/app/src/main/res/values/strings.xml`: `app_name = "Osaka Live"`
 - Environment-specific folders chứa tên riêng cho Dev/Staging
 - Có thể tạo `values-ko/strings.xml` nếu muốn localization native
 
@@ -87,7 +87,7 @@ String getLocalizedAppName(String? languageCode) {
     case 'zh':
       return "我的马凸轮"; // Ví dụ tiếng Trung
     default:
-      return appName; // mymacam
+      return appName; // Osaka Live
   }
 }
 ```

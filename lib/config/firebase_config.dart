@@ -241,7 +241,7 @@ class FirebaseConfig {
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
-      alert: true,
+      alert: false,
       badge: true,
       sound: true,
     );
@@ -269,28 +269,29 @@ class FirebaseConfig {
   /// Show Flutter notification
   void showFlutterNotification(
       BuildContext context, RemoteMessage message) async {
-    RemoteNotification? notification = message.notification;
-    if (messId == message.messageId) {
-      return;
-    }
-    if (notification != null) {
-      print('show notification');
+    print('Foreground message received, skip notification display');
+    // RemoteNotification? notification = message.notification;
+    // if (messId == message.messageId) {
+    //   return;
+    // }
+    // if (notification != null) {
+    //   print('show notification');
 
-      // Only show notification using flutter_local_notifications on Android
-      // iOS will handle foreground notifications natively via setForegroundNotificationPresentationOptions
-      if (Platform.isAndroid) {
-        flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-                android: AndroidNotificationDetails(channel.id, channel.name,
-                    channelDescription: channel.description,
-                    icon: 'ic_noti_icon',
-                    color: const Color(0xff000000))),
-            payload: message.data['redirectUrl']);
-      }
-      messId = message.messageId;
-    }
+    //   // Only show notification using flutter_local_notifications on Android
+    //   // iOS will handle foreground notifications natively via setForegroundNotificationPresentationOptions
+    //   if (Platform.isAndroid) {
+    //     flutterLocalNotificationsPlugin.show(
+    //         notification.hashCode,
+    //         notification.title,
+    //         notification.body,
+    //         NotificationDetails(
+    //             android: AndroidNotificationDetails(channel.id, channel.name,
+    //                 channelDescription: channel.description,
+    //                 icon: 'ic_noti_icon',
+    //                 color: const Color(0xff000000))),
+    //         payload: message.data['redirectUrl']);
+    //   }
+    //   messId = message.messageId;
+    // }
   }
 }

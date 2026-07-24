@@ -1,12 +1,12 @@
 import 'package:osaka_app/config/env_config.dart';
 
-const appName = "mymacam";
+const appName = "Osaka Live";
 
 // Get localized app name based on locale
 String getLocalizedAppName(String? languageCode) {
   final env = EnvConfig.instance;
   if (languageCode == 'ko') {
-    return "마이마캠 ${env.env != "PROD" ? "(${env.env})" : ""}";
+    return "Osaka Live ${env.env != "PROD" ? "(${env.env})" : ""}";
   }
   return "$appName ${env.env != "PROD" ? "(${env.env})" : ""}";
 }
@@ -26,7 +26,5 @@ const String androidLastestLiveVersion = 'android_latest_live_version';
 const String iOSLastestLiveVersion = 'ios_latest_live_version';
 
 const List<String> routeNoSafeArea = [
-  '/login',
-  '/forgot-password',
-  '/reset-password'
+  '/sessions/'
 ];

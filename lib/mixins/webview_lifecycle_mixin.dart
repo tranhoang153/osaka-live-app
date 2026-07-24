@@ -184,6 +184,9 @@ mixin WebViewLifecycleMixin<T extends StatefulWidget> on State<T> {
     // );
 
     await controller.evaluateJavascript(source: listenRouterChange);
+    if (url?.uriValue.path.startsWith('/sessions/') ?? false) {
+      await controller.evaluateJavascript(source: unmuteAutoplayVideos);
+    }
 
     print("stop successful");
     loadingProvider.setWebViewReady(true);
@@ -291,8 +294,10 @@ mixin WebViewLifecycleMixin<T extends StatefulWidget> on State<T> {
     final uri = request.url;
     final rawUri = uri.uriValue;
 
-    // Handle app custom scheme (e.g., imr://app?url=https://...) by redirecting to the target URL
-    if (rawUri.scheme == 'imr' &&
+    final appScheme = EnvConfig.instance.appScheme;
+
+    // Handle app custom scheme (e.g., osaka-live-dev://app?url=https://...) by redirecting to the target URL
+    if (rawUri.scheme == appScheme &&
         (rawUri.queryParameters['url']?.isNotEmpty ?? false)) {
       final target = Uri.tryParse(rawUri.queryParameters['url']!);
       if (target != null &&
@@ -321,7 +326,7 @@ mixin WebViewLifecycleMixin<T extends StatefulWidget> on State<T> {
         error.description == 'unsupported URL' &&
         WebViewHelper.isNonWebsiteUrl(uri.toString())) {
       // Avoid looping when the URL is our own app scheme; it was handled above.
-      if (uri.scheme == 'imr') {
+      if (uri.scheme == appScheme) {
         return;
       }
       if (await canLaunchUrl(uri)) {

@@ -19,6 +19,70 @@ const listenRouterChange = """
         })();
       """;
 
+const unmuteAutoplayVideos = """
+        (function() {
+          try {
+            if (window.__osakaLiveUnmuteVideosInstalled) {
+              window.__osakaLiveUnmuteVideos();
+              return;
+            }
+
+            window.__osakaLiveUnmuteVideosInstalled = true;
+            window.__osakaLiveUnmuteVideos = function() {
+              var videos = document.querySelectorAll('video');
+              videos.forEach(function(video) {
+                video.muted = false;
+                video.defaultMuted = false;
+                video.volume = 1;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('webkit-playsinline', '');
+
+                if (!video.__osakaLivePauseListenerInstalled) {
+                  video.__osakaLivePauseListenerInstalled = true;
+                  video.__osakaLiveUserPaused = false;
+                  video.addEventListener('pause', function() {
+                    video.__osakaLiveUserPaused = true;
+                  });
+                  video.addEventListener('play', function() {
+                    video.__osakaLiveUserPaused = false;
+                  });
+                }
+
+                if (!video.__osakaLiveAutoplayAttempted && !video.__osakaLiveUserPaused) {
+                  video.__osakaLiveAutoplayAttempted = true;
+                  var playPromise = video.play && video.play();
+                  if (playPromise && playPromise.catch) {
+                    playPromise.catch(function() {});
+                  }
+                }
+              });
+            };
+
+            window.__osakaLiveUnmuteVideos();
+
+            var observer = new MutationObserver(function() {
+              window.__osakaLiveUnmuteVideos();
+            });
+            observer.observe(document.documentElement, {
+              childList: true,
+              subtree: true,
+              attributes: true,
+              attributeFilter: ['muted', 'autoplay']
+            });
+
+            var attempts = 0;
+            var interval = setInterval(function() {
+              window.__osakaLiveUnmuteVideos();
+              attempts += 1;
+              if (attempts >= 10) {
+                clearInterval(interval);
+              }
+            }, 500);
+          } catch (e) {
+          }
+        })();
+      """;
+
 String pushLivePosition({
   required double lat,
   required double lng,
