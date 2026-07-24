@@ -22,13 +22,13 @@ class AuthRepository {
     required String fcmToken,
     String? uidx,
   }) async {
-    await FcmService().save(fcmToken);
+    // await FcmService().save(fcmToken);
   }
 
   /// Delete FCM device token from backend
   /// Called when user logs out or token needs to be removed
   Future<void> deleteDeviceToken({required String fcmToken}) async {
-    await FcmService().delete(fcmToken);
+    // await FcmService().delete(fcmToken);
   }
 
   // ==================== User Authentication ====================

@@ -171,11 +171,11 @@ class FirebaseConfig {
         saveDeepLink(message);
       } else {
         print('onMessageOpenApp');
-        // if (message.data['redirectUrl'] != null) {
-        //   webViewController.evaluateJavascript(
-        //       source: navigate(message.data['redirectUrl']));
-        // }
-        webViewController.evaluateJavascript(source: navigate('/notification'));
+        if (message.data['redirectUrl'] != null) {
+          webViewController.evaluateJavascript(
+              source: navigate(message.data['redirectUrl']));
+        }
+        // webViewController.evaluateJavascript(source: navigate('/notification'));
       }
     } catch (e) {
       print("webViewController error => $e");
@@ -185,10 +185,10 @@ class FirebaseConfig {
   /// Save deep link from message
   void saveDeepLink(RemoteMessage message) async {
     SharedPreferences pref = await SharedPreferences.getInstance();
-    // if (message.data['redirectUrl'] != null) {
-    //   pref.setString("deepLink", message.data['redirectUrl']);
-    // }
-    pref.setString("deepLink", '/notification');
+    if (message.data['redirectUrl'] != null) {
+      pref.setString("deepLink", message.data['redirectUrl']);
+    }
+    // pref.setString("deepLink", '/notification');
   }
 
   /// Setup Flutter local notifications
@@ -251,19 +251,19 @@ class FirebaseConfig {
   /// Handle notification tap
   void handleNotificationTap(
       BuildContext context, NotificationResponse response) {
-    // if (response.payload != null) {
-    //   // Handle the action, like navigating to a specific screen
-    //   print('Notification payload: ${response.payload}');
-    //   try {
-    //     final provider = Provider.of<WebViewProvider>(context, listen: false);
-    //     provider.handleNotification(response.payload ?? '');
-    //   } catch (e) {
-    //     print("err => $e");
-    //   }
-    //   // Navigate to a specific screen or perform some action based on the payload
-    // }
+    if (response.payload != null) {
+      // Handle the action, like navigating to a specific screen
+      print('Notification payload: ${response.payload}');
+      try {
+        final provider = Provider.of<WebViewProvider>(context, listen: false);
+        provider.handleNotification(response.payload ?? '');
+      } catch (e) {
+        print("err => $e");
+      }
+      // Navigate to a specific screen or perform some action based on the payload
+    }
     final provider = Provider.of<WebViewProvider>(context, listen: false);
-    provider.handleNotification('/notification');
+    // provider.handleNotification('/notification');
   }
 
   /// Show Flutter notification
